@@ -6,6 +6,8 @@ using Content = System.Collections.Generic.Dictionary<string, string>;
 
 const string CONFIG_FILE = ".config";
 const string DEFAULT_BASKET = "save";
+const string KEY_PARAMETER = "-n";
+const string DEFAULT_KEY = "note_";
 string pantry_id = "";
 
 
@@ -30,6 +32,46 @@ string baseURL = $"https://getpantry.cloud/apiv1/pantry/{pantry_id}/";
 string basketURL = $"{baseURL}basket/save";
 
 HttpResponseMessage response = await httpClient.GetAsync(baseURL);
+Content? allNotes = JsonSerializer.Deserialize<Content>(await response.Content.ReadAsStringAsync());
+
+if (args.Length > 0)
+{
+    string key = "";
+    int startIndex = 0;
+
+    for (int i = 0; i < args.Length; i++)
+    {
+        if (args[i] == KEY_PARAMETER)
+        {
+            key = args[i + 1];
+            startIndex = i + 2;
+            break;
+        }
+    }
+
+    string content = String.Join("", args[startIndex..args.Length]);
+
+    if (key == "")
+    {
+        int index = 0;
+        do
+        {
+            key = $"{DEFAULT_KEY}{index}";
+            index++;
+
+        } while (allNotes != null && allNotes.ContainsKey(key));
+    }
+    response = await httpClient.PutAsJsonAsync(basketURL, new Content() { { key, content } });
+
+    if (response.StatusCode == System.Net.HttpStatusCode.OK)
+    {
+        Console.WriteLine("LETSGO");
+    }
+    else
+    {
+        Console.WriteLine(await response.Content.ReadAsStringAsync());
+    }
+}
 
 
 if (response.StatusCode == System.Net.HttpStatusCode.OK)
