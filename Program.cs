@@ -1,5 +1,13 @@
-﻿const string CONFIG_FILE = ".config";
+﻿using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using System.Text.Json;
+
+using Content = System.Collections.Generic.Dictionary<string, string>;
+
+const string CONFIG_FILE = ".config";
+const string DEFAULT_BASKET = "save";
 string pantry_id = "";
+
 
 if (File.Exists(CONFIG_FILE))
 {
@@ -14,4 +22,75 @@ else
     {
         File.WriteAllText(CONFIG_FILE, pantry_id);
     }
+}
+
+HttpClient httpClient = InitializeHttpClient();
+
+string baseURL = $"https://getpantry.cloud/apiv1/pantry/{pantry_id}/";
+string basketURL = $"{baseURL}basket/save";
+
+HttpResponseMessage response = await httpClient.GetAsync(baseURL);
+
+
+if (response.StatusCode == System.Net.HttpStatusCode.OK)
+{
+    string pantryRawContent = (await response.Content.ReadAsStringAsync()) ?? "";
+    Pantry? pantry = JsonSerializer.Deserialize<Pantry>(pantryRawContent);
+
+
+    if (pantry != null)
+    {
+        BasketListing saveBasket = null;
+        if (pantry?.baskets != null)
+        {
+            foreach (BasketListing basket in pantry.baskets)
+            {
+                if (basket.name == DEFAULT_BASKET)
+                {
+                    saveBasket = basket;
+                }
+            }
+        }
+
+        if (saveBasket == null)
+        {
+            response = await httpClient.PostAsJsonAsync(basketURL, new Content() { });
+            Console.WriteLine(await response.Content.ReadAsStringAsync());
+        }
+    }
+    else
+    {
+        Console.WriteLine("Error: Could not get pantry");
+    }
+}
+
+else
+{
+    Console.WriteLine(response.StatusCode);
+    Console.WriteLine();
+}
+
+
+
+HttpClient InitializeHttpClient()
+{
+    HttpClient httpClient = new HttpClient();
+    httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+    return httpClient;
+}
+
+class Pantry
+{
+    public string? name { get; set; }
+    public string? description { get; set; }
+    public string[]? errors { get; set; }
+    public bool? notifications { get; set; }
+    public double? percentFull { get; set; }
+    public BasketListing[]? baskets { get; set; }
+}
+
+class BasketListing
+{
+    public string? name { get; set; }
+    public int? ttl { get; set; }
 }
